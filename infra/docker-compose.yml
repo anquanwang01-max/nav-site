@@ -1,0 +1,50 @@
+version: '3.9'
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: infra/dockerfiles/api.Dockerfile
+    env_file:
+      - ../.env.example
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build:
+      context: ..
+      dockerfile: infra/dockerfiles/worker.Dockerfile
+    env_file:
+      - ../.env.example
+    depends_on:
+      - db
+    command: python -m worker.market_data_worker
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: infra/dockerfiles/frontend.Dockerfile
+    env_file:
+      - ../.env.example
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: quant_trading
+      POSTGRES_USER: quant_user
+      POSTGRES_PASSWORD: quant_pass
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ../db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    ports:
+      - "5432:5432"
+
+volumes:
+  db_data:
